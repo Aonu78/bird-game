@@ -113,6 +113,7 @@ public abstract class AndroidGame extends Activity implements Game {
     }
 
     @Override
+    @SuppressWarnings({"deprecation", "GestureBackNavigation"})
     public void onBackPressed() {
         screen.back();
     }

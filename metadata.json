@@ -1,0 +1,8 @@
+{
+  "name": "Bird Game - Android & Web Edition",
+  "description": "Native Android & Interactive Web edition of Bird Game, featuring real-time physics, LiquidFun-inspired obstacles, endless arcade gameplay, and Android APK deployment.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
