@@ -41,7 +41,7 @@ public class StartScreen extends LoadingScreen {
         Assets.obstacle = graphics.newPixmap("obstacle.png", Graphics.PixmapFormat.ARGB8888);
         Assets.obstacleTile = new RectangularTileEffect((AndroidPixmap)Assets.obstacle);
         setProgress(100);
-        game.setScreen(new GameScreen(game));
+        game.setScreen(new LobbyScreen(game));
     }
 
     @Override

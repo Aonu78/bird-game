@@ -1,12 +1,15 @@
 package com.mirkoalicastro.birdgame;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 
 import com.badlogic.androidgames.framework.Game;
 import com.badlogic.androidgames.framework.Graphics;
 import com.badlogic.androidgames.framework.Input;
 import com.badlogic.androidgames.framework.Screen;
+import com.badlogic.androidgames.framework.impl.AndroidRectangularButton;
 import com.google.fpl.liquidfun.Body;
 import com.google.fpl.liquidfun.BodyDef;
 import com.google.fpl.liquidfun.BodyType;
@@ -44,15 +47,43 @@ public class GameScreen extends Screen {
     private long animationUntil;
     private Entity[] enclosures;
     private ContactListener contactListener;
+    private AndroidRectangularButton retryButton;
+    private AndroidRectangularButton lobbyButton;
+    private int highScore = 0;
+    private boolean isNewHighScore = false;
+    private boolean savedScore = false;
 
     GameScreen(Game game) {
         super(game);
         graphics = game.getGraphics();
         Converter.setScale(graphics.getWidth(), graphics.getHeight());
+
+        try {
+            Activity activity = (Activity) game;
+            SharedPreferences prefs = activity.getSharedPreferences("BirdGamePrefs", Context.MODE_PRIVATE);
+            highScore = prefs.getInt("high_score", 0);
+        } catch (Exception ignored) {
+        }
+
+        int centerX = graphics.getWidth() / 2;
+        int btnW = 340;
+        int btnH = 104;
+        int btnY = 630;
+
+        retryButton = new AndroidRectangularButton(graphics, centerX - btnW - 30, btnY, btnW, btnH);
+        retryButton.setColor(Color.parseColor("#0284c7"));
+        retryButton.setStroke(5, Color.parseColor("#38bdf8"));
+
+        lobbyButton = new AndroidRectangularButton(graphics, centerX + 30, btnY, btnW, btnH);
+        lobbyButton.setColor(Color.parseColor("#334155"));
+        lobbyButton.setStroke(5, Color.parseColor("#64748b"));
+
         allocate();
     }
 
     private void allocate() {
+        savedScore = false;
+        isNewHighScore = false;
         bodyDef = new BodyDef();
         fixtureDef = new FixtureDef();
         box = new PolygonShape();
@@ -67,6 +98,22 @@ public class GameScreen extends Screen {
         gameLevel = new GameLevel(world, graphics);
     }
 
+    private void checkHighScore() {
+        if (savedScore) return;
+        savedScore = true;
+        int currentScore = gameStatus.getScore();
+        if (currentScore > highScore) {
+            highScore = currentScore;
+            isNewHighScore = true;
+            try {
+                Activity activity = (Activity) game;
+                SharedPreferences prefs = activity.getSharedPreferences("BirdGamePrefs", Context.MODE_PRIVATE);
+                prefs.edit().putInt("high_score", highScore).apply();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     @Override
     public void update(float deltaTime) {
         boolean jump = false;
@@ -76,25 +123,30 @@ public class GameScreen extends Screen {
         DrawableComponent avatarDrawable = (DrawableComponent) gameStatus.getAvatar().getComponent(Component.Type.Drawable);
         long now = System.currentTimeMillis();
 
-        for (Input.TouchEvent event: game.getInput().getTouchEvents()) {
-            if (event.type == Input.TouchEvent.TOUCH_UP) {
-//                if (menubutton.inBounds(event)) {
-
-//                } else
-                if (isAlive) {
-                    jump = true;
-                    ((CircleAnimationDrawableComponent) avatarDrawable).play();
-                } else {
-                    allocate(); //TODO button
-                    return;
+        if (!isAlive) {
+            checkHighScore();
+            for (Input.TouchEvent event: game.getInput().getTouchEvents()) {
+                if (event.type == Input.TouchEvent.TOUCH_UP) {
+                    if (retryButton.inBounds(event)) {
+                        dispose();
+                        allocate();
+                        return;
+                    } else if (lobbyButton.inBounds(event)) {
+                        dispose();
+                        game.setScreen(new LobbyScreen(game));
+                        return;
+                    }
                 }
-
-//                }
             }
+            return;
         }
 
-        if (!isAlive)
-            return;
+        for (Input.TouchEvent event: game.getInput().getTouchEvents()) {
+            if (event.type == Input.TouchEvent.TOUCH_UP) {
+                jump = true;
+                ((CircleAnimationDrawableComponent) avatarDrawable).play();
+            }
+        }
 
         if (jump) {
             if (now > jumpUntil)
@@ -125,8 +177,29 @@ public class GameScreen extends Screen {
             obsDrawable.draw();
         }
         graphics.drawText(((Activity)game).getString(R.string.score) + gameStatus.getScore(),graphics.getWidth()-SCORE_RIGHT_MARGIN,SCORE_TOP_MARGIN,SCORE_FONT_SIZE, Color.BLACK, Graphics.TextAlign.RIGHT);
+
         if (!gameStatus.isAvatarAlive()) {
-            graphics.drawText("HAI PERSO", 100, 100, 45, Color.BLACK, Graphics.TextAlign.CENTER);
+            int centerX = graphics.getWidth() / 2;
+            int boxW = 1040;
+            int boxH = 480;
+            int boxX = centerX - boxW / 2;
+            int boxY = graphics.getHeight() / 2 - boxH / 2;
+
+            // Dark backdrop dialog
+            graphics.drawRect(boxX, boxY, boxW, boxH, Color.parseColor("#ea0f172a"));
+            graphics.drawRectBorder(boxX, boxY, boxW, boxH, 6, Color.parseColor("#ef4444"));
+
+            graphics.drawText("CRASH! GAME OVER", centerX, boxY + 105, 68, Color.parseColor("#ef4444"), Graphics.TextAlign.CENTER);
+            graphics.drawText("SCORE: " + gameStatus.getScore() + "      ★ BEST: " + highScore, centerX, boxY + 205, 50, Color.WHITE, Graphics.TextAlign.CENTER);
+            if (isNewHighScore) {
+                graphics.drawText("★ NEW BEST RECORD UNLOCKED! ★", centerX, boxY + 265, 36, Color.parseColor("#facc15"), Graphics.TextAlign.CENTER);
+            }
+
+            retryButton.draw();
+            graphics.drawText("RETRY", retryButton.getX() + retryButton.getWidth() / 2, retryButton.getY() + 68, 44, Color.WHITE, Graphics.TextAlign.CENTER);
+
+            lobbyButton.draw();
+            graphics.drawText("BACK TO LOBBY", lobbyButton.getX() + lobbyButton.getWidth() / 2, lobbyButton.getY() + 68, 38, Color.WHITE, Graphics.TextAlign.CENTER);
         }
     }
 
@@ -155,7 +228,8 @@ public class GameScreen extends Screen {
 
     @Override
     public void back() {
-        ((Activity)game).finish();
+        dispose();
+        game.setScreen(new LobbyScreen(game));
     }
 
     private void updateScore() {
